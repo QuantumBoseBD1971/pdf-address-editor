@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release-windows:
     runs-on: windows-latest
@@ -38,16 +41,12 @@ jobs:
       - name: Build Electron app
         run: npm run dist
 
-      - name: Upload packaged app
-        uses: actions/upload-artifact@v4
-        with:
-          name: pdf-address-editor-windows
-          path: |
-            dist/**
-
       - name: Upload EXE to GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe 
+          files: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest*.yml
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}      
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
