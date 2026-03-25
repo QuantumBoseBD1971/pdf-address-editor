@@ -2,8 +2,6 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 jobs:
   build-windows:
@@ -43,5 +41,4 @@ jobs:
         with:
           name: pdf-address-editor-windows
           path: |
-            release/**
             dist/**
