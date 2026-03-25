@@ -42,12 +42,13 @@ def main():
     text_rect = fitz.Rect(args.x0 + 6, args.y0 + 6, args.x1 - 6, args.y1 - 4)
 
     page.draw_rect(cover_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
-    add_address_with_autofit(page, text_rect, args.new_address)
+    used_fontsize = add_address_with_autofit(page, text_rect, args.new_address)
 
-    doc.save(args.output)
+    doc.save(args.output, garbage=4, deflate=True, clean=True)
     doc.close()
 
-    print(f"Saved to: {args.output}")
+    print(f"Saved corrected PDF to: {args.output}")
+    print(f"Used font size: {used_fontsize}")
 
 
 if __name__ == "__main__":
