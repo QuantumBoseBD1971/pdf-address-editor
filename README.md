@@ -1,5 +1,9 @@
 # 📄 PDF Address Editor (Desktop App)
 
+## 📸 Preview
+
+![App Screenshot](./screenshot.png)
+
 ## 🚀 Overview
 A desktop tool for visually editing address fields in PDF invoices.
 
