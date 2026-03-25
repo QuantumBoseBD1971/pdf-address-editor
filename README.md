@@ -9,7 +9,8 @@
 
 ## 📸 Preview
 
-![App Screenshot](./screenshot.png)
+<img width="1902" height="1025" alt="image" src="https://github.com/user-attachments/assets/22e4ef87-18f2-4900-9f61-e1bd2336f3ea" />
+
 
 ---
 
