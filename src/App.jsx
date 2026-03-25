@@ -31,6 +31,12 @@ function formatAddressLines(text) {
     .join("\n");
 }
 
+function toPythonTripleQuoted(text) {
+  return `"""${text.replace(/"""/g, '\\"""')}"""`;
+}
+
+const DEFAULT_RECT = { x: 80, y: 120, width: 180, height: 88 };
+
 export default function App() {
   const canvasRef = useRef(null);
   const overlayRef = useRef(null);
@@ -39,60 +45,90 @@ export default function App() {
   const [pdfDoc, setPdfDoc] = useState(null);
   const [pageNum, setPageNum] = useState(1);
   const [pageCount, setPageCount] = useState(0);
+
   const [viewportSize, setViewportSize] = useState({ width: 1, height: 1 });
   const [pdfSize, setPdfSize] = useState({ width: 1, height: 1 });
+
   const [status, setStatus] = useState("Open a PDF to begin.");
   const [isProcessing, setIsProcessing] = useState(false);
   const [outputPath, setOutputPath] = useState("");
+
+  const [oldAddress, setOldAddress] = useState("");
   const [newAddress, setNewAddress] = useState(
     "OCS UK Limited\nNew Century House\nThe Havens\nIpswich\nIP3 9SJ"
   );
+
   const [previewAddress, setPreviewAddress] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
   const [dragStart, setDragStart] = useState(null);
-  const [rect, setRect] = useState({ x: 80, y: 120, width: 180, height: 88 });
+  const [rect, setRect] = useState(DEFAULT_RECT);
 
+  const cleanOldAddress = useMemo(() => formatAddressLines(oldAddress), [oldAddress]);
   const cleanNewAddress = useMemo(() => formatAddressLines(newAddress), [newAddress]);
 
+  const resetRectangle = () => {
+    setRect(DEFAULT_RECT);
+  };
+
   const openPdf = async () => {
-    const selected = await window.pdfAddressEditor.selectPdf();
-    if (!selected?.ok) return;
+    try {
+      const selected = await window.pdfAddressEditor.selectPdf();
+      if (!selected?.ok) return;
 
-    setPdfPath(selected.path);
-    setStatus("Loading PDF...");
+      setStatus("Loading PDF...");
+      setOutputPath("");
+      setPdfPath(selected.path);
+      setPdfDoc(null);
+      setPageNum(1);
+      setPageCount(0);
+      resetRectangle();
 
-    const res = await window.pdfAddressEditor.readPdf(selected.path);
-    const bytes = b64ToUint8Array(res.base64);
-    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+      const res = await window.pdfAddressEditor.readPdf(selected.path);
+      if (!res?.ok || !res.base64) {
+        setStatus("Failed to read PDF.");
+        return;
+      }
 
-    setPdfDoc(doc);
-    setPageCount(doc.numPages);
-    setPageNum(1);
-    setStatus(`Loaded ${selected.path.split(/[/\\]/).pop()}`);
+      const bytes = b64ToUint8Array(res.base64);
+      const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+      setPdfDoc(doc);
+      setPageCount(doc.numPages);
+      setPageNum(1);
+      setStatus(`Loaded ${selected.path.split(/[/\\]/).pop()}`);
+    } catch (error) {
+      setStatus(error?.message || "Failed to open PDF.");
+    }
   };
 
   useEffect(() => {
     async function renderPage() {
       if (!pdfDoc || !canvasRef.current) return;
 
-      const page = await pdfDoc.getPage(pageNum);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const maxWidth = 900;
-      const scale = maxWidth / baseViewport.width;
-      const viewport = page.getViewport({ scale });
+      try {
+        const safePageNum = Math.min(Math.max(pageNum, 1), pdfDoc.numPages);
+        const page = await pdfDoc.getPage(safePageNum);
 
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
+        const baseViewport = page.getViewport({ scale: 1 });
+        const maxWidth = 900;
+        const scale = maxWidth / baseViewport.width;
+        const viewport = page.getViewport({ scale });
 
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext("2d");
 
-      await page.render({ canvasContext: context, viewport }).promise;
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
 
-      setViewportSize({ width: viewport.width, height: viewport.height });
-      setPdfSize({ width: baseViewport.width, height: baseViewport.height });
+        await page.render({ canvasContext: context, viewport }).promise;
+
+        setViewportSize({ width: viewport.width, height: viewport.height });
+        setPdfSize({ width: baseViewport.width, height: baseViewport.height });
+      } catch (error) {
+        setStatus(error?.message || "Failed to render PDF page.");
+      }
     }
 
     renderPage();
@@ -109,6 +145,8 @@ export default function App() {
   };
 
   const onMouseDown = (e) => {
+    if (!pdfDoc) return;
+
     const p = pointFromEvent(e);
     if (!p) return;
 
@@ -149,36 +187,135 @@ export default function App() {
   }, [rect, pdfSize, viewportSize]);
 
   const previewLineCount = Math.max(1, cleanNewAddress.split("\n").filter(Boolean).length);
+
   const previewFontSize = useMemo(() => {
     if (!rect.height || !rect.width) return 14;
+
     const byHeight = rect.height / (previewLineCount * 1.28);
     const longest = Math.max(...cleanNewAddress.split("\n").map((s) => s.length || 1), 1);
     const byWidth = rect.width / Math.max(longest * 0.62, 1);
+
     return clamp(Math.min(byHeight, byWidth, 18), 8, 16);
   }, [cleanNewAddress, previewLineCount, rect.height, rect.width]);
+
+  const jsonPayload = useMemo(() => {
+    return {
+      inputPath: pdfPath,
+      page: pageNum,
+      pdfRectangle: pdfRect,
+      previousAddress: cleanOldAddress,
+      newAddress: cleanNewAddress
+    };
+  }, [pdfPath, pageNum, pdfRect, cleanOldAddress, cleanNewAddress]);
+
+  const pythonConfig = useMemo(() => {
+    return `import fitz
+
+INPUT_PDF = r"C:\\path\\to\\invoice.pdf"
+OUTPUT_PDF = r"C:\\path\\to\\invoice_corrected.pdf"
+
+OLD_ADDRESS = ${toPythonTripleQuoted(cleanOldAddress)}
+NEW_ADDRESS = ${toPythonTripleQuoted(cleanNewAddress)}
+
+COVER_RECT = fitz.Rect(${pdfRect.x0}, ${pdfRect.y0}, ${pdfRect.x1}, ${pdfRect.y1})
+TEXT_RECT = fitz.Rect(${pdfRect.x0 + 6}, ${pdfRect.y0 + 6}, ${pdfRect.x1 - 6}, ${pdfRect.y1 - 4})
+`;
+  }, [cleanOldAddress, cleanNewAddress, pdfRect]);
+
+  const fullPythonScript = useMemo(() => {
+    return `import fitz
+
+INPUT_PDF = r"C:\\path\\to\\invoice.pdf"
+OUTPUT_PDF = r"C:\\path\\to\\invoice_corrected.pdf"
+
+NEW_ADDRESS = ${toPythonTripleQuoted(cleanNewAddress)}
+
+COVER_RECT = fitz.Rect(${pdfRect.x0}, ${pdfRect.y0}, ${pdfRect.x1}, ${pdfRect.y1})
+TEXT_RECT = fitz.Rect(${pdfRect.x0 + 6}, ${pdfRect.y0 + 6}, ${pdfRect.x1 - 6}, ${pdfRect.y1 - 4})
+
+def add_address_with_autofit(page, text_rect, text, max_fontsize=9.5, min_fontsize=6.5):
+    fontsize = max_fontsize
+
+    while fontsize >= min_fontsize:
+        rc = page.insert_textbox(
+            text_rect,
+            text,
+            fontsize=fontsize,
+            fontname="helv",
+            color=(0, 0, 0),
+            align=0,
+            lineheight=1.15,
+            overlay=True,
+        )
+        if rc >= 0:
+            return fontsize
+        fontsize -= 0.25
+
+    raise ValueError("Address too long to fit.")
+
+def replace_address(input_pdf, output_pdf, new_address):
+    doc = fitz.open(input_pdf)
+    page = doc[0]
+    page.draw_rect(COVER_RECT, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
+    add_address_with_autofit(page, TEXT_RECT, new_address)
+    doc.save(output_pdf, garbage=4, deflate=True, clean=True)
+    doc.close()
+
+if __name__ == "__main__":
+    replace_address(INPUT_PDF, OUTPUT_PDF, NEW_ADDRESS)
+`;
+  }, [cleanNewAddress, pdfRect]);
 
   const replaceAddress = async () => {
     if (!pdfPath) return setStatus("Open a PDF first.");
     if (!cleanNewAddress) return setStatus("Enter a new address first.");
     if (rect.width < 10 || rect.height < 10) return setStatus("Draw a valid rectangle first.");
 
-    setIsProcessing(true);
-    setStatus("Replacing address...");
+    try {
+      setIsProcessing(true);
+      setStatus("Replacing address...");
 
-    const result = await window.pdfAddressEditor.replaceAddress({
-      inputPath: pdfPath,
-      page: pageNum,
-      pdfRectangle: pdfRect,
-      newAddress: cleanNewAddress
-    });
+      const result = await window.pdfAddressEditor.replaceAddress({
+        inputPath: pdfPath,
+        page: pageNum,
+        pdfRectangle: pdfRect,
+        previousAddress: cleanOldAddress,
+        newAddress: cleanNewAddress
+      });
 
-    setIsProcessing(false);
+      if (result?.ok) {
+        setOutputPath(result.outputPath);
+        setStatus(`Saved corrected PDF to ${result.outputPath}`);
+      } else {
+        setStatus(result?.error || "Replacement failed.");
+      }
+    } catch (error) {
+      setStatus(error?.message || "Replacement failed.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-    if (result?.ok) {
-      setOutputPath(result.outputPath);
-      setStatus(`Saved corrected PDF to ${result.outputPath}`);
-    } else {
-      setStatus(result?.error || "Replacement failed.");
+  const saveConfigBundle = async () => {
+    if (!window.pdfAddressEditor?.saveConfig) {
+      setStatus("Save config is not available in this build.");
+      return;
+    }
+
+    try {
+      const result = await window.pdfAddressEditor.saveConfig({
+        jsonPayload,
+        pythonConfig,
+        fullPythonScript
+      });
+
+      if (result?.ok) {
+        setStatus(`Saved config bundle to ${result.savedTo}`);
+      } else {
+        setStatus("Save cancelled.");
+      }
+    } catch (error) {
+      setStatus(error?.message || "Failed to save config bundle.");
     }
   };
 
@@ -195,6 +332,12 @@ export default function App() {
             <button className="primary-btn" onClick={openPdf}>Open PDF</button>
             <button className="secondary-btn" onClick={replaceAddress} disabled={isProcessing}>
               {isProcessing ? "Processing..." : "Replace Address"}
+            </button>
+          </div>
+
+          <div className="button-row">
+            <button className="secondary-btn" onClick={saveConfigBundle}>
+              Save Config Bundle
             </button>
           </div>
 
@@ -217,16 +360,23 @@ export default function App() {
           </div>
 
           <div className="button-row">
-            <button
-              className="secondary-btn"
-              onClick={() => setRect({ x: 80, y: 120, width: 180, height: 88 })}
-            >
+            <button className="secondary-btn" onClick={resetRectangle}>
               Reset Rectangle
             </button>
             <button className="secondary-btn" onClick={() => setPreviewAddress((v) => !v)}>
               {previewAddress ? "Hide Preview" : "Show Preview"}
             </button>
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Previous Address</div>
+          <textarea
+            className="text-input"
+            value={oldAddress}
+            onChange={(e) => setOldAddress(e.target.value)}
+            placeholder="Paste the current address here (optional)"
+          />
         </div>
 
         <div className="card">
@@ -242,10 +392,16 @@ export default function App() {
         <div className="card">
           <div className="card-title">Page Controls</div>
           <div className="button-row">
-            <button className="secondary-btn" disabled={pageNum <= 1} onClick={() => setPageNum((p) => p - 1)}>
+            <button
+              className="secondary-btn"
+              disabled={pageNum <= 1}
+              onClick={() => setPageNum((p) => p - 1)}
+            >
               Prev
             </button>
+
             <div className="pill">Page {pageNum} / {pageCount || 1}</div>
+
             <button
               className="secondary-btn"
               disabled={!pageCount || pageNum >= pageCount}
@@ -260,6 +416,7 @@ export default function App() {
       <main className="preview-panel">
         <div className="preview-card">
           <div className="preview-title">PDF Preview</div>
+
           <div className="canvas-wrapper">
             <div
               ref={overlayRef}
