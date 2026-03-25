@@ -44,3 +44,10 @@ jobs:
           name: pdf-address-editor-windows
           path: |
             dist/**
+
+      - name: Upload EXE to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*.exe 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}      
