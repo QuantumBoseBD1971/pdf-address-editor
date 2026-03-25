@@ -1,5 +1,12 @@
 # 📄 PDF Address Editor (Desktop App)
 
+![React](https://img.shields.io/badge/Frontend-React-blue?style=for-the-badge\&logo=react)
+![Electron](https://img.shields.io/badge/Desktop-Electron-2C2E3A?style=for-the-badge\&logo=electron)
+![Python](https://img.shields.io/badge/Backend-Python-yellow?style=for-the-badge\&logo=python)
+![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
+
+---
+
 ## 📸 Preview
 
 ![App Screenshot](./screenshot.png)
@@ -8,7 +15,7 @@
 
 ## 🚀 Overview
 
-A desktop tool for visually editing address fields in PDF invoices using a simple, interactive interface.
+A desktop tool for visually editing address fields in PDF invoices using a simple and interactive interface.
 
 > 🧠 *Inspired by 1952. Built on 1971.*
 
@@ -33,16 +40,18 @@ This tool enables **fast, repeatable, and visual editing** of address fields wit
 * ✏️ Replace with a new address dynamically
 * 🔄 Auto-fit text for varying address lengths
 * 💾 Export corrected PDF
-* 🖥️ Desktop application (Windows executable)
+* 🖥️ Packaged as a Windows desktop application
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Frontend:** React + Vite
-* **Desktop App:** Electron
-* **PDF Processing:** Python + PyMuPDF
-* **Packaging:** PyInstaller + Electron Builder
+| Layer       | Technology                     |
+| ----------- | ------------------------------ |
+| Frontend    | React + Vite                   |
+| Desktop App | Electron                       |
+| Backend     | Python (PyMuPDF)               |
+| Packaging   | PyInstaller + Electron Builder |
 
 ---
 
@@ -78,7 +87,7 @@ npm run dist
 
 Output:
 
-```text
+```
 release/
 ```
 
@@ -102,7 +111,7 @@ Download the latest Windows build from the **Releases** section.
 ## 🔥 Future Improvements
 
 * Auto-detect address regions
-* Supplier templates (e.g. CEF)
+* Supplier templates (e.g. CEF invoices)
 * Batch processing for multiple PDFs
 * Cloud integration (AWS / Azure)
 
@@ -114,3 +123,7 @@ Download the latest Windows build from the **Releases** section.
 Data Engineer | AI & Automation
 
 ---
+
+## ⭐ Support
+
+If you find this project useful, consider giving it a ⭐ on GitHub!
