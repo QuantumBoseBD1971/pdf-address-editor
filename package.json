@@ -1,7 +1,6 @@
 {
-  "name": "pdf-address-editor",
-  "version": "1.0.0",
-  "main": "electron/main.js",
+  "description": "Visual PDF address editor with React, Electron, and PyMuPDF for dynamic invoice updates",
+  "author": "Munir Uddin",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -9,14 +8,14 @@
     "dist": "vite build && electron-builder --publish never"
   },
   "dependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "pdfjs-dist": "^4.0.0"
+    "pdfjs-dist": "^4.6.82",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "vite": "^5.0.0",
-    "electron": "^31.0.0",
-    "electron-builder": "^24.0.0",
-    "@vitejs/plugin-react": "^5.0.0"
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^31.0.2",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.4.0"
   }
 }
