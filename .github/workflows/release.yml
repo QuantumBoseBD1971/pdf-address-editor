@@ -1,7 +1,9 @@
 name: Release Windows App
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   release-windows:
