@@ -1,6 +1,10 @@
 {
+  "name": "pdf-address-editor",
+  "version": "1.1.0",
   "description": "Visual PDF address editor with React, Electron, and PyMuPDF for dynamic invoice updates",
   "author": "Munir Uddin",
+  "main": "electron/main.js",
+  "private": true,
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -17,5 +21,24 @@
     "electron": "^31.0.2",
     "electron-builder": "^24.13.3",
     "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.quantumbosebd1971.pdfaddresseditor",
+    "productName": "PDF Address Editor",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "backend/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist/replace_address.exe",
+        "to": "backend/replace_address.exe"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    }
   }
 }
