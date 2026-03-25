@@ -18,7 +18,28 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
+
+  // Keep this path for your packaged/win-unpacked build for now
   win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+
+  // Debugging helpers
+  win.webContents.openDevTools();
+
+  win.webContents.on("did-fail-load", (_event, code, desc, url) => {
+    console.error("did-fail-load:", { code, desc, url });
+  });
+
+  win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    console.log("renderer console:", { level, message, line, sourceId });
+  });
+
+  win.webContents.on("render-process-gone", (_event, details) => {
+    console.error("render-process-gone:", details);
+  });
+
+  win.webContents.on("unresponsive", () => {
+    console.error("renderer became unresponsive");
+  });
 }
 
 function getBackendCommand() {
