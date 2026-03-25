@@ -1,0 +1,48 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pymupdf pyinstaller
+
+      - name: Build Python backend EXE
+        run: |
+          pyinstaller --onefile backend/replace_address.py --distpath backend/dist --workpath backend/build --specpath backend
+
+      - name: Build Electron app
+        run: npm run dist
+
+      - name: Upload packaged app
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-address-editor-windows
+          path: |
+            release/**
+            dist/**
