@@ -50,56 +50,101 @@ ipcMain.handle("select-pdf", async () => {
 });
 
 ipcMain.handle("read-pdf", async (_event, filePath) => {
-  const data = fs.readFileSync(filePath);
-  return { ok: true, base64: data.toString("base64") };
+  try {
+    const data = fs.readFileSync(filePath);
+    return { ok: true, base64: data.toString("base64") };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
 });
 
 ipcMain.handle("replace-address", async (_event, payload) => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    title: "Save corrected PDF",
-    defaultPath: path.basename(payload.inputPath).replace(/\.pdf$/i, "_corrected.pdf"),
-    filters: [{ name: "PDF", extensions: ["pdf"] }]
-  });
-
-  if (canceled || !filePath) {
-    return { ok: false, error: "Save cancelled." };
-  }
-
-  const backend = getBackendCommand();
-  const args = [
-    ...backend.argsPrefix,
-    "--input", payload.inputPath,
-    "--output", filePath,
-    "--page", String(payload.page),
-    "--x0", String(payload.pdfRectangle.x0),
-    "--y0", String(payload.pdfRectangle.y0),
-    "--x1", String(payload.pdfRectangle.x1),
-    "--y1", String(payload.pdfRectangle.y1),
-    "--new-address", payload.newAddress
-  ];
-
-  return await new Promise((resolve) => {
-    const child = spawn(backend.command, args, { windowsHide: true });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (d) => (stdout += d.toString()));
-    child.stderr.on("data", (d) => (stderr += d.toString()));
-    child.on("error", (err) => resolve({ ok: false, error: err.message }));
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve({ ok: true, outputPath: filePath, log: stdout });
-      } else {
-        resolve({ ok: false, error: stderr || stdout || `Process failed with code ${code}` });
-      }
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Save corrected PDF",
+      defaultPath: path.basename(payload.inputPath).replace(/\.pdf$/i, "_corrected.pdf"),
+      filters: [{ name: "PDF", extensions: ["pdf"] }]
     });
-  });
+
+    if (canceled || !filePath) {
+      return { ok: false, error: "Save cancelled." };
+    }
+
+    const backend = getBackendCommand();
+    const args = [
+      ...backend.argsPrefix,
+      "--input", payload.inputPath,
+      "--output", filePath,
+      "--page", String(payload.page),
+      "--x0", String(payload.pdfRectangle.x0),
+      "--y0", String(payload.pdfRectangle.y0),
+      "--x1", String(payload.pdfRectangle.x1),
+      "--y1", String(payload.pdfRectangle.y1),
+      "--new-address", payload.newAddress
+    ];
+
+    return await new Promise((resolve) => {
+      const child = spawn(backend.command, args, { windowsHide: true });
+
+      let stdout = "";
+      let stderr = "";
+
+      child.stdout.on("data", (d) => {
+        stdout += d.toString();
+      });
+
+      child.stderr.on("data", (d) => {
+        stderr += d.toString();
+      });
+
+      child.on("error", (err) => {
+        resolve({ ok: false, error: err.message });
+      });
+
+      child.on("close", (code) => {
+        if (code === 0) {
+          resolve({ ok: true, outputPath: filePath, log: stdout });
+        } else {
+          resolve({
+            ok: false,
+            error: stderr || stdout || `Process failed with code ${code}`
+          });
+        }
+      });
+    });
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle("save-config", async (_event, payload) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Save config bundle",
+      defaultPath: "pdf-address-editor-config.json",
+      filters: [{ name: "JSON", extensions: ["json"] }]
+    });
+
+    if (canceled || !filePath) {
+      return { ok: false, error: "Save cancelled." };
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(payload.jsonPayload, null, 2), "utf8");
+
+    const base = filePath.replace(/\.json$/i, "");
+    fs.writeFileSync(`${base}.pyconfig.txt`, payload.pythonConfig, "utf8");
+    fs.writeFileSync(`${base}.script.py`, payload.fullPythonScript, "utf8");
+
+    return { ok: true, savedTo: filePath };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
 });
 
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 });
